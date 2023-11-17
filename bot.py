@@ -9,6 +9,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from config import CHAT_ID, CHANEL_ID
+from data_base import User
+from ast import literal_eval
 
 router = Router(name=__name__)
 
@@ -26,48 +28,137 @@ Keyboard = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[create_applicati
 
 @dp.message(filters.Command(commands=['start']))
 async def send_welcome(message: types.Message) -> None:
+    User.get_or_create(tg_id=message.from_user.id)
     await message.answer(
         f"Привет {message.from_user.full_name}!\nЕсли хочешь написть, когохочешь найти, просто нажми на кнопку ниже.",
         reply_markup=Keyboard)
 
 
+@dp.message(filters.Command(commands=['mute']), TypeChatFilter("supergroup"))
+async def mute(message: types.Message) -> None:
+    try:
+        tg_id = int(message.text.split()[1])
+        user = User.get(last_message_id=tg_id)
+        user.is_mute = False
+        user.save()
+    except Exception:
+        await message.answer("Произошла ошибка")
+
+
+@dp.message(filters.Command(commands=['unmute']), TypeChatFilter("supergroup"))
+async def unmute(message: types.Message) -> None:
+    try:
+        tg_id = int(message.text.split()[1])
+        user = User.get(last_message_id=tg_id)
+        user.is_mute = False
+        user.save()
+    except Exception:
+        await message.answer("Произошла ошибка")
+
+
 @dp.message(TypeChatFilter(chat_type="private"), F.text == create_application_btn.text)
-async def press_button(message: types.Message, state: FSMContext):
+async def press_button(message: types.Message, state: FSMContext) -> None:
     await message.answer("Напиши, кого хочешь найти")
     await state.set_state(Application.create_application_state)
 
 
 @dp.message(TypeChatFilter(chat_type="private"), Application.create_application_state)
 async def create_application(message: types.Message, state: FSMContext, album: List[types.Message] = None) -> None:
-    if message.media_group_id:
-        media_group = []
-        for msg in album:
-            if msg.photo:
-                file_id = msg.photo[-1].file_id
-                caption = msg.caption
-                media_group.append(types.InputMediaPhoto(media=file_id, caption=caption))
-            elif msg.video:
-                file_id = msg.video.file_id
-                caption = msg.caption
-                media_group.append(types.InputMediaVideo(media=file_id, caption=caption))
-        msg = await bot.send_media_group(CHAT_ID, media_group)
-        btn = InlineKeyboardButton(text="Разместить", callback_data=str(msg[0].message_id))
+    user, is_create = User.get_or_create(tg_id=message.from_user.id)
+    if not user.is_mute:
+        if message.media_group_id:
+            media_group = []
+            for msg in album:
+                if msg.photo:
+                    file_id = msg.photo[-1].file_id
+                    caption = msg.caption
+                    media_group.append(types.InputMediaPhoto(media=file_id, caption=caption))
+                elif msg.video:
+                    file_id = msg.video.file_id
+                    caption = msg.caption
+                    media_group.append(types.InputMediaVideo(media=file_id, caption=caption))
+            m = await bot.send_media_group(CHAT_ID, media_group)
+            m = m[0]
+            btn = InlineKeyboardButton(text="Разместить", callback_data=str(m.message_id))
+        else:
+            m = await message.copy_to(CHAT_ID)
+            btn = InlineKeyboardButton(text="Разместить", callback_data=str(m.message_id))
+        markup = InlineKeyboardMarkup(inline_keyboard=[[btn]])
+        _list = literal_eval(user.all_message)
+        _list.append(m.message_id)
+        user.all_message = _list
+        user.save()
+        await bot.send_message(CHAT_ID,
+                               f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.full_name}</a>," + (
+                                   f" @{message.from_user.username}," if message.from_user.username else "") + f" (#ID{message.from_user.id})",
+                               reply_markup=markup)
+        await message.answer("Заявка принята, жди свою запись в канале @LoveSesc🥰", reply_markup=Keyboard)
     else:
-        msg = await message.copy_to(CHAT_ID)
-        btn = InlineKeyboardButton(text="Разместить", callback_data=str(msg.message_id))
-    markup = InlineKeyboardMarkup(inline_keyboard=[[btn]])
-    await bot.send_message(CHAT_ID,
-                           f"<a href='tg://user?id={message.from_user.id}'>{message.from_user.full_name}</a>," + (
-                               f" @{message.from_user.username}," if message.from_user.username else "") + f" (#ID{message.from_user.id})",
-                           reply_markup=markup)
-    await message.answer("Заявка принята, жди свою запись в канале @LoveSesc🥰")
+        await message.answer("Вы в муте")
     await state.clear()
+
+
+@dp.message(TypeChatFilter(chat_type="private"))
+async def send_message_for_admin(message: types.Message, album: List[types.Message] = None) -> None:
+    user, is_create = User.get_or_create(tg_id=message.from_user.id)
+    if is_create:
+        await message.answer("Мы обновились, нажимай но кнопку снизу", reply_markup=Keyboard)
+    else:
+        if not user.is_mute:
+            if message.media_group_id:
+                media_group = []
+                for msg in album:
+                    if msg.photo:
+                        file_id = msg.photo[-1].file_id
+                        caption = msg.caption
+                        media_group.append(types.InputMediaPhoto(media=file_id, caption=caption))
+                    elif msg.video:
+                        file_id = msg.video.file_id
+                        caption = msg.caption
+                        media_group.append(types.InputMediaVideo(media=file_id, caption=caption))
+                m = await bot.send_media_group(CHAT_ID, media_group)
+                m = m[0]
+            else:
+                m = await message.copy_to(CHAT_ID)
+            _list = literal_eval(user.all_message)
+            _list.append(m.message_id)
+            user.all_message = _list
+            user.save()
+            await bot.send_message(CHAT_ID,
+                                   f"<b>Сообщение от:</b>\n\n<a href='tg://user?id={message.from_user.id}'>{message.from_user.full_name}</a>," + (
+                                       f" @{message.from_user.username}," if message.from_user.username else "") + f" (#ID{message.from_user.id})")
+        else:
+            await message.answer("Вы в муте")
+
+
+@dp.message(TypeChatFilter("supergroup"))
+async def reply(message: types.Message, album: List[types.Message] = None) -> None:
+    if message.reply_to_message:
+        if message.reply_to_message.from_user.id == bot.id:
+            for user in User.select():
+                if message.reply_to_message.message_id in literal_eval(user.all_message):
+                    if message.media_group_id:
+                        media_group = []
+                        for msg in album:
+                            if msg.photo:
+                                file_id = msg.photo[-1].file_id
+                                caption = msg.caption
+                                media_group.append(types.InputMediaPhoto(media=file_id, caption=caption))
+                            elif msg.video:
+                                file_id = msg.video.file_id
+                                caption = msg.caption
+                                media_group.append(types.InputMediaVideo(media=file_id, caption=caption))
+                        await bot.send_media_group(user.tg_id, media_group)
+                    else:
+                        await message.copy_to(user.tg_id)
+                break
 
 
 @dp.callback_query()
 async def post(callback_query: types.CallbackQuery) -> None:
     i = int(callback_query.data)
     media_group = []
+    await callback_query.message.delete_reply_markup()
     while True:
         msg = await bot.forward_message(CHAT_ID, CHAT_ID, i,
                                         disable_notification=True)
@@ -85,6 +176,6 @@ async def post(callback_query: types.CallbackQuery) -> None:
         await msg.delete()
         i += 1
     if len(media_group) != 0:
-        await bot.send_media_group(CHANEL_ID, CHAT_ID, media_group)
+        await bot.send_media_group(CHANEL_ID, media_group)
     else:
         await bot.copy_message(CHANEL_ID, CHAT_ID, i)

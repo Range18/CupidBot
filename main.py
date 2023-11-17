@@ -19,6 +19,5 @@ async def main(dispatcher: Dispatcher) -> None:
 
 if __name__ == "__main__":
     from bot import dp
-
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main(dp))
