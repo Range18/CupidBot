@@ -39,7 +39,7 @@ async def send_welcome(message: types.Message) -> None:
 async def mute(message: types.Message) -> None:
     try:
         tg_id = int(message.text.split()[1])
-        user = User.get(last_message_id=tg_id)
+        user = User.get(tg_id=tg_id)
         user.is_mute = False
         user.save()
     except Exception:
@@ -50,7 +50,7 @@ async def mute(message: types.Message) -> None:
 async def unmute(message: types.Message) -> None:
     try:
         tg_id = int(message.text.split()[1])
-        user = User.get(last_message_id=tg_id)
+        user = User.get(tg_id=tg_id)
         user.is_mute = False
         user.save()
     except Exception:
