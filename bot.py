@@ -40,7 +40,7 @@ async def mute(message: types.Message) -> None:
     try:
         tg_id = int(message.text.split()[1])
         user = User.get(tg_id=tg_id)
-        user.is_mute = False
+        user.is_mute = True
         user.save()
     except Exception:
         await message.answer("Произошла ошибка")
