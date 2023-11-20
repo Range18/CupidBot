@@ -30,7 +30,7 @@ Keyboard = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[create_applicati
 async def send_welcome(message: types.Message) -> None:
     User.get_or_create(tg_id=message.from_user.id)
     await message.answer(
-        f"Привет {message.from_user.full_name}!\nЕсли хочешь написть, когохочешь найти, просто нажми на кнопку ниже.",
+        f"Привет {message.from_user.full_name}!\nЕсли хочешь написть, когохочешь найти, просто нажми на кнопку ниже. Еслм хочешь написать админам, просто напиши сообщение боту.",
         reply_markup=Keyboard)
 
 
@@ -159,7 +159,9 @@ async def create_application(message: types.Message, state: FSMContext, album: L
 async def send_message_for_admin(message: types.Message, album: List[types.Message] = None) -> None:
     user, is_create = User.get_or_create(tg_id=message.from_user.id)
     if is_create:
-        await message.answer("Мы обновились, нажимай но кнопку снизу", reply_markup=Keyboard)
+        await message.answer(
+            "Мы обновились, нажимай но кнопку снизу если хочешь оставить заявку на пост в канале. Еслм хочешь написать админам, просто напиши сообщение боту.",
+            reply_markup=Keyboard)
     else:
         if not user.is_mute:
             if message.media_group_id:
