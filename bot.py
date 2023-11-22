@@ -84,7 +84,10 @@ async def list_of_muted(message: types.Message) -> None:
 @dp.message(filters.Command(commands=['send']), IsReplyMessage(), TypeChatFilter("supergroup"), F.chat.id == CHAT_ID)
 async def send(message: types.Message) -> None:
     for user in User.select():
-        await message.reply_to_message.copy_to(user.tg_id)
+        try:
+            await message.reply_to_message.copy_to(user.tg_id)
+        except Exception:
+            continue 
 
 
 # Ответ на сообщение
