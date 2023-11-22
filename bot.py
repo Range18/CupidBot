@@ -1,3 +1,5 @@
+import aiogram
+
 from main import bot, dp
 from aiogram import Router, F
 from aiogram import filters
@@ -56,6 +58,26 @@ async def unmute(message: types.Message) -> None:
         await message.answer("Пользователь теперь не в муте")
     except Exception:
         await message.answer("Произошла ошибка")
+
+
+@dp.message(filters.Command(commands=['muted']), TypeChatFilter("supergroup"), F.chat.id == CHAT_ID)
+async def list_of_muted(message: types.Message) -> None:
+    try:
+        text_to_send = 'Список дурачков:\n'
+        users = User.select().where(User.is_mute == True)
+
+        if not users:
+            await message.answer('Дурачков нет')
+            return
+
+        for user in users:
+            profile = await bot.get_chat_member(user.tg_id, user.tg_id)
+            text_to_send += f"<a href='tg://user?id={user.tg_id}'>@{profile.user.username}</a> {profile.user.full_name} (#ID{user.tg_id})\n"
+        await message.answer(text=text_to_send)
+
+    except Exception:
+        await message.answer("Произошла ошибка")
+
 
 
 # Рассылка сообщений по всем чатам
