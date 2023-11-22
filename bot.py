@@ -1,4 +1,3 @@
-from aiogram import types
 from main import bot, dp
 from aiogram import Router, F
 from aiogram import filters
@@ -30,7 +29,7 @@ Keyboard = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[create_applicati
 async def send_welcome(message: types.Message) -> None:
     User.get_or_create(tg_id=message.from_user.id)
     await message.answer(
-        f"Привет {message.from_user.full_name}!\nЕсли хочешь написть, когохочешь найти, просто нажми на кнопку ниже. Еслм хочешь написать админам, просто напиши сообщение боту.",
+        f"Привет {message.from_user.full_name}!\nЕсли хочешь написать, кого хочешь найти, нажми на кнопку ниже. Если хочешь написать админам, просто напиши сообщение боту.",
         reply_markup=Keyboard)
 
 
@@ -42,6 +41,7 @@ async def mute(message: types.Message) -> None:
         user = User.get(tg_id=tg_id)
         user.is_mute = True
         user.save()
+        await message.answer("Пользователь в теперь муте")
     except Exception:
         await message.answer("Произошла ошибка")
 
@@ -53,16 +53,19 @@ async def unmute(message: types.Message) -> None:
         user = User.get(tg_id=tg_id)
         user.is_mute = False
         user.save()
+        await message.answer("Пользователь теперь не в муте")
     except Exception:
         await message.answer("Произошла ошибка")
 
 
+# Рассылка сообщений по всем чатам
 @dp.message(filters.Command(commands=['send']), IsReplyMessage(), TypeChatFilter("supergroup"), F.chat.id == CHAT_ID)
 async def send(message: types.Message) -> None:
     for user in User.select():
         await message.reply_to_message.copy_to(user.tg_id)
 
 
+# Ответ на сообщение
 @dp.message(TypeChatFilter("supergroup"), F.chat.id == CHAT_ID, IsReplyMessage())
 async def reply(message: types.Message, album: List[types.Message] = None) -> None:
     if message.reply_to_message.from_user.id == bot.id:
@@ -114,7 +117,8 @@ async def post(callback_query: types.CallbackQuery) -> None:
 # взаимодейсвие пользователей с ботом
 @dp.message(TypeChatFilter(chat_type="private"), F.text == create_application_btn.text)
 async def press_button(message: types.Message, state: FSMContext) -> None:
-    await message.answer("Напиши, кого хочешь найти")
+    await message.answer("Напиши свой пост для канала. Помни, что запрещён самопиар, посты про учителей, пост не "
+                         "связанный с тематикой канала.")
     await state.set_state(Application.create_application_state)
 
 
@@ -160,7 +164,7 @@ async def send_message_for_admin(message: types.Message, album: List[types.Messa
     user, is_create = User.get_or_create(tg_id=message.from_user.id)
     if is_create:
         await message.answer(
-            "Мы обновились, нажимай но кнопку снизу если хочешь оставить заявку на пост в канале. Еслм хочешь написать админам, просто напиши сообщение боту.",
+            "Мы обновились! Нажимай но кнопку снизу, если хочешь оставить заявку на пост в канале. Если хочешь написать админам, просто напиши сообщение боту.",
             reply_markup=Keyboard)
     else:
         if not user.is_mute:

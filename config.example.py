@@ -1,0 +1,3 @@
+TOKEN = ''
+CHANEL_ID = 0
+CHAT_ID = 0
